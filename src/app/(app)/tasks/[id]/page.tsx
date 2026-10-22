@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMember, isManager } from "@/lib/auth";
 import { getActivity, getLookups, getSettings, getTask } from "@/lib/data";
-import { ACTIVITY_LABEL, formatDate, formatDateTime, isAckLate, isOverdue, needsAck, taskRef } from "@/lib/tasks";
+import { activityText, formatDate, formatDateTime, isAckLate, isOverdue, needsAck, taskRef } from "@/lib/tasks";
 import { Avatar, DueText, PriorityTag, StatusBadge } from "@/components/ui";
 import ActionForm from "./ActionForm";
 
@@ -83,7 +83,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                   <div className="min-w-0 pl-2">
                     <div className="text-sm text-ink">
                       <b>{(a.actor_id && lookups.memberName[a.actor_id]) || "Someone"}</b>{" "}
-                      <span className="text-muted">{(ACTIVITY_LABEL[a.event] ?? a.event).toLowerCase()}</span>
+                      <span className="text-muted">{activityText(a.event)}</span>
                     </div>
                     {a.detail && <p className="mt-1 whitespace-pre-wrap rounded-md bg-ice px-3 py-2 text-sm text-ink">{a.detail}</p>}
                     <div className="mt-1 text-xs text-faint">{formatDateTime(a.created_at)}</div>

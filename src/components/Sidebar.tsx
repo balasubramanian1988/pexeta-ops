@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, ListChecks, ClipboardList, Settings, Menu, X, LogOut } from "lucide-react";
+import { LayoutDashboard, ListChecks, ClipboardList, FileText, Settings, Menu, X, LogOut } from "lucide-react";
 import type { Member } from "@/lib/types";
 
 const ROLE_LABEL = { vp: "Vice President", admin: "Admin", member: "Team member" } as const;
@@ -17,7 +17,12 @@ export default function Sidebar({ member }: { member: Member }) {
     { href: "/dashboard", label: manager ? "VP dashboard" : "Dashboard", icon: LayoutDashboard },
     { href: "/my-work", label: "My work", icon: ListChecks },
     { href: "/tasks", label: "Task register", icon: ClipboardList },
-    ...(manager ? [{ href: "/settings", label: "Settings", icon: Settings }] : []),
+    ...(manager
+      ? [
+          { href: "/reports", label: "Seller reports", icon: FileText },
+          { href: "/settings", label: "Settings", icon: Settings },
+        ]
+      : []),
   ];
 
   const nav = (

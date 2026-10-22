@@ -5,7 +5,8 @@ import { getMember, isManager } from "@/lib/auth";
 import { getLookups, getSettings } from "@/lib/data";
 import { STATUS_LABEL } from "@/lib/tasks";
 import { Avatar, PageHeader } from "@/components/ui";
-import { ListAddForm, MemberForm, RulesForm } from "./Forms";
+import { ClientContactForm, ListAddForm, MemberForm, NotifySettingsForm, RulesForm } from "./Forms";
+import { RunJobButton } from "../reports/RunJob";
 import type { Status } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -48,6 +49,25 @@ export default async function SettingsPage() {
           <h2 className="text-base font-bold text-navy">Operating rules</h2>
           <p className="mb-4 mt-1 text-xs text-muted">These drive the Overdue and Not acknowledged flags on the dashboard.</p>
           <RulesForm settings={settings} />
+        </section>
+
+        <section className="card p-5">
+          <h2 className="text-base font-bold text-navy">Notifications and reports</h2>
+          <p className="mb-4 mt-1 text-xs text-muted">
+            Task updates are emailed to the people involved; blocks, submissions, closures and reopens also go to the team&apos;s Google Chat space.
+            Reminders go once per task and stage. The daily report covers the previous day; weekly seller drafts appear under Seller reports every Monday.
+          </p>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <NotifySettingsForm settings={settings} />
+            <div className="space-y-3">
+              <div className="label">Run now (for testing)</div>
+              <div className="flex flex-wrap gap-3">
+                <RunJobButton job="daily" label="Send daily report now" />
+                <RunJobButton job="reminders" label="Check reminders now" />
+                <RunJobButton job="weekly" label="Draft weekly reports now" />
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="card p-5">
@@ -97,6 +117,15 @@ export default async function SettingsPage() {
             </div>
           </section>
         </div>
+
+        <section className="card p-5">
+          <h2 className="text-base font-bold text-navy">Seller contacts for weekly reports</h2>
+          <p className="mt-1 text-xs text-muted">Where each account&apos;s weekly update is sent. You can also change this on the report itself before sending.</p>
+          <div className="mt-2 divide-y divide-line">
+            {lookups.clients.filter((c) => c.active).length === 0 && <p className="py-3 text-sm text-muted">Add client accounts first.</p>}
+            {lookups.clients.filter((c) => c.active).map((c) => <ClientContactForm key={c.id} client={c} />)}
+          </div>
+        </section>
 
         <section className="card p-5">
           <h2 className="text-base font-bold text-navy">Status definitions</h2>

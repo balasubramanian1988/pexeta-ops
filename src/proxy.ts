@@ -11,6 +11,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Scheduled jobs authenticate with CRON_SECRET inside the route, not with a session.
+  if (request.nextUrl.pathname.startsWith("/api/cron")) return NextResponse.next();
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

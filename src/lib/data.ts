@@ -14,7 +14,7 @@ export const getLookups = cache(async () => {
   const supabase = await createClient();
   const [team, clients, marketplaces] = await Promise.all([
     supabase.from("team_members").select("id, email, full_name, role, active").order("full_name"),
-    supabase.from("clients").select("id, name, active").order("name"),
+    supabase.from("clients").select("*").order("name"),
     supabase.from("marketplaces").select("id, name, active, sort_order").order("sort_order"),
   ]);
   const teamList = (team.data ?? []) as Member[];

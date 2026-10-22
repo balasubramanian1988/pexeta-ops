@@ -132,3 +132,9 @@ export const ACTIVITY_LABEL: Record<string, string> = {
 export function msAgo(days: number) {
   return Date.now() - days * 86400000;
 }
+
+/** Activity label for use mid-sentence ("Alex submitted for VP closure"). Keeps acronyms like VP intact. */
+export function activityText(event: string) {
+  const l = ACTIVITY_LABEL[event] ?? event;
+  return l.charAt(0).toLowerCase() + l.slice(1);
+}

@@ -2,10 +2,17 @@
 // All writes happen here. Each action re-checks the signed-in member's role and the task's state,
 // then writes with the service-role client and records an activity entry.
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { getMember, isManager } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Member, Priority, Role, Settings, Status, Task } from "@/lib/types";
+import { notifyTaskEvent, type TaskEvent } from "@/lib/notify/events";
+
+/** Send notifications after the response, so a slow mail server never slows or fails an action. */
+function notify(taskId: string, event: TaskEvent, actorId: string, note = "", previousAssigneeId?: string) {
+  after(() => notifyTaskEvent(taskId, event, { actorId, note, previousAssigneeId }));
+}
 
 export type ActionResult = { ok: boolean; error?: string };
 
@@ -81,6 +88,7 @@ export async function createTask(_prev: ActionResult, fd: FormData): Promise<Act
   if (error || !data) return { ok: false, error: error?.message ?? "Could not create the task." };
 
   await log(data.id, me, "created", "");
+  notify(data.id, "created", me.id);
   refresh(data.id);
   redirect(`/tasks/${data.id}`);
 }
@@ -129,6 +137,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         if (status !== "assigned" && status !== "reopened") return deny("This task has already been acknowledged.");
         await update(id, { status: "acknowledged", acknowledged_at: now });
         await log(id, me, "acknowledged", note);
+        notify(id, "acknowledged", me.id, note);
         break;
       }
       case "start": {
@@ -139,6 +148,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
           acknowledged_at: task.acknowledged_at && status !== "reopened" ? task.acknowledged_at : now,
         });
         await log(id, me, "started", note);
+        if (status === "assigned" || status === "reopened") notify(id, "started", me.id, note);
         break;
       }
       case "progress": {
@@ -155,6 +165,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         if (!["acknowledged", "in_progress", "reopened", "assigned"].includes(status)) return deny("This task can't be blocked from its current state.");
         await update(id, { status: "blocked", blocked_reason: note });
         await log(id, me, "blocked", note);
+        notify(id, "blocked", me.id, note);
         break;
       }
       case "unblock": {
@@ -162,6 +173,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         if (status !== "blocked") return deny("This task isn't blocked.");
         await update(id, { status: "in_progress", blocked_reason: "" });
         await log(id, me, "unblocked", note);
+        notify(id, "unblocked", me.id, note);
         break;
       }
       case "complete": {
@@ -169,6 +181,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         if (!["acknowledged", "in_progress"].includes(status)) return deny("Start the task before submitting it.");
         await update(id, { status: "completed", completed_at: now, progress: 100 });
         await log(id, me, "completed", note);
+        notify(id, "completed", me.id, note);
         break;
       }
       case "close": {
@@ -176,6 +189,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         if (status !== "completed") return deny("Only tasks awaiting closure can be closed.");
         await update(id, { status: "closed", closed_at: now });
         await log(id, me, "closed", note);
+        notify(id, "closed", me.id, note);
         break;
       }
       case "reopen": {
@@ -184,11 +198,13 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         if (!note) return deny("Add feedback so the owner knows what to fix.");
         await update(id, { status: "reopened", closed_at: null, completed_at: null, assigned_at: now, acknowledged_at: null });
         await log(id, me, "reopened", note);
+        notify(id, "reopened", me.id, note);
         break;
       }
       case "comment": {
         if (!note) return deny("Write a comment first.");
         await log(id, me, "comment", note);
+        notify(id, "comment", me.id, note);
         await update(id, {});
         break;
       }
@@ -204,6 +220,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
           status: status === "closed" ? status : ("assigned" as Status),
         });
         await log(id, me, "reassigned", `To ${target?.full_name ?? "team member"}${note ? ` · ${note}` : ""}`);
+        notify(id, "reassigned", me.id, note, task.assignee_id);
         break;
       }
       case "due": {
@@ -212,6 +229,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         if (!due) return deny("Choose the new due date.");
         await update(id, { due_date: due });
         await log(id, me, "due_changed", `${task.due_date} → ${due}${note ? ` · ${note}` : ""}`);
+        notify(id, "due_changed", me.id, note);
         break;
       }
       case "edit": {

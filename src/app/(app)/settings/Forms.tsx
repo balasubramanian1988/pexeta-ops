@@ -2,7 +2,8 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { addListItem, saveRules, upsertMember, type ActionResult } from "@/app/actions";
-import type { Settings } from "@/lib/types";
+import { saveClientContacts, saveNotifySettings } from "@/app/report-actions";
+import type { Client, Settings } from "@/lib/types";
 
 function Msg({ state, okText }: { state: ActionResult; okText: string }) {
   if (state.error) return <p className="text-xs text-red-700">{state.error}</p>;
@@ -75,6 +76,42 @@ export function ListAddForm({ table, placeholder }: { table: "clients" | "market
       <button className="btn btn-dark sm:w-28" disabled={pending}>{pending ? "Adding…" : "Add"}</button>
       <div className="sm:hidden"><Msg state={state} okText="Added." /></div>
       <div className="hidden sm:block">{state.error && <p className="text-xs text-red-700">{state.error}</p>}</div>
+    </form>
+  );
+}
+
+export function NotifySettingsForm({ settings }: { settings: Settings }) {
+  const [state, action, pending] = useActionState<ActionResult, FormData>(saveNotifySettings, { ok: false });
+  return (
+    <form action={action} className="space-y-2">
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="daily_report_enabled" defaultChecked={settings.daily_report_enabled !== false} />
+        Email the daily ops report to the VP at 9 am
+      </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="reminders_enabled" defaultChecked={settings.reminders_enabled !== false} />
+        Send SLA reminders (hourly, 9 am–7 pm)
+      </label>
+      <div className="flex items-center gap-3 pt-1">
+        <button className="btn btn-dark" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
+        <Msg state={state} okText="Saved." />
+      </div>
+    </form>
+  );
+}
+
+export function ClientContactForm({ client }: { client: Client }) {
+  const [state, action, pending] = useActionState<ActionResult, FormData>(saveClientContacts, { ok: false });
+  return (
+    <form action={action} className="grid gap-2 py-3 sm:grid-cols-[10rem_minmax(0,1fr)_12rem_auto] sm:items-center">
+      <input type="hidden" name="client_id" value={client.id} />
+      <span className="text-sm font-medium text-ink">{client.name}</span>
+      <input name="recipients" defaultValue={(client.contact_emails ?? []).join(", ")} placeholder="Seller emails, comma separated" className="field" />
+      <input name="contact_name" defaultValue={client.contact_name ?? ""} placeholder="Greeting name" className="field" />
+      <div className="flex items-center gap-2">
+        <button className="btn btn-outline" disabled={pending}>{pending ? "…" : "Save"}</button>
+        <Msg state={state} okText="Saved." />
+      </div>
     </form>
   );
 }

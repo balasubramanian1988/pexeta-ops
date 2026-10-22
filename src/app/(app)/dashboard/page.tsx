@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Clock, Hourglass, ListTodo, Octagon } from "lucide-react";
 import { getMember, isManager } from "@/lib/auth";
 import { getLookups, getRecentActivity, getSettings, getTasks } from "@/lib/data";
-import { ACTIVITY_LABEL, PRIORITY_RANK, formatDateTime, isAckLate, isOpen, isOverdue, msAgo, todayIST } from "@/lib/tasks";
+import { activityText, PRIORITY_RANK, formatDateTime, isAckLate, isOpen, isOverdue, msAgo, todayIST } from "@/lib/tasks";
 import { Avatar, Empty, PageHeader, TaskLine } from "@/components/ui";
 import type { Task } from "@/lib/types";
 
@@ -115,7 +115,7 @@ export default async function DashboardPage() {
                 <div className="text-xs text-faint">{formatDateTime(a.created_at)}</div>
                 <div className="text-sm text-ink">
                   <span className="font-semibold">{(a.actor_id && lookups.memberName[a.actor_id]) || "Someone"}</span>{" "}
-                  {(ACTIVITY_LABEL[a.event] ?? a.event).toLowerCase()}
+                  {activityText(a.event)}
                 </div>
                 <Link href={`/tasks/${a.task_id}`} className="block truncate text-xs text-brand hover:underline">
                   PX-{a.task_ref} · {a.task_title}

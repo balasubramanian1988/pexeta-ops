@@ -70,3 +70,39 @@ src/app/actions.ts           all writes: lifecycle rules, role checks, activity 
 src/lib/tasks.ts             labels, colours, overdue and acknowledgement logic
 src/app/(app)/...            dashboard, my-work, tasks, settings pages
 ```
+
+---
+
+## Notifications, reminders and reports
+
+### What is sent
+
+| Event | Email to | Google Chat |
+|---|---|---|
+| Task assigned | Owner | – |
+| Reassigned | New owner (old owner gets an FYI) | – |
+| Acknowledged / started | Whoever assigned it | – |
+| Blocked | VP and assigner, with the reason | ✓ |
+| Unblocked | Owner and assigner | ✓ |
+| Submitted for VP closure | Everyone allowed to close | ✓ |
+| Closed | Owner | ✓ |
+| Reopened | Owner, with the feedback | ✓ |
+| Due date changed | Owner | – |
+| Comment | Owner and assigner | – |
+
+Nobody is emailed about their own action. Inactive members get nothing.
+
+**SLA reminders** (hourly, 9 am–7 pm IST, each sent once): not acknowledged within the window (owner, VP copied), due tomorrow, due today, past due (owner, VP copied, plus a Chat alert). Each owner gets one combined email per run.
+
+**Daily report** (9 am IST, to the VP, admins copied): yesterday's updates, submissions and closures; position this morning; account-wise and team member-wise tables; month to date (created, closed, on-time %, reopens); lists of what was closed, blocked, reopened and is overdue.
+
+**Weekly seller reports** (drafted Monday 9 am IST for the previous Monday–Sunday): one per account with work that week, under **Seller reports**. The VP adds a note, unticks anything that shouldn't go out, checks the preview and sends. The seller gets it from EMAIL_FROM, the sender and VP are copied, and replies go to the sender.
+
+### One-time setup
+
+1. **Database:** in Supabase → SQL Editor, run `supabase/002_notifications_reports.sql`.
+2. **Email (Resend):** sign up at resend.com → Domains → add `pexeta.in` → add the DNS records it shows (in your domain's DNS) → wait for "Verified" → API Keys → create a key.
+3. **Google Chat (optional):** create a space for the team (e.g. "Pexeta Ops alerts") → space name → Apps & integrations → Webhooks → Add webhook → copy the URL.
+4. **Vercel → Settings → Environment Variables:** add `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `GOOGLE_CHAT_WEBHOOK_URL`, `CRON_SECRET` (see `.env.example`), then redeploy.
+5. **Schedules:** open `supabase/003_schedules.sql`, replace `YOUR_CRON_SECRET` (three places) with your CRON_SECRET, and run it in the SQL Editor.
+6. **Test:** Settings → Notifications and reports → "Send daily report now", "Check reminders now" and "Draft weekly reports now".
