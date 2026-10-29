@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMember, isManager } from "@/lib/auth";
+import { canManageTask, getMember } from "@/lib/auth";
 import { getActivity, getLookups, getSettings, getTask } from "@/lib/data";
 import { activityText, formatDate, formatDateTime, isAckLate, isOverdue, needsAck, taskRef } from "@/lib/tasks";
 import { Avatar, DueText, PriorityTag, StatusBadge } from "@/components/ui";
@@ -15,7 +15,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   if (!task) notFound();
   const activity = await getActivity(task.id);
 
-  const manager = isManager(me.role);
+  const manager = canManageTask(me, task);
   const isOwner = task.assignee_id === me.id;
   const canClose = settings.closure_roles.includes(me.role);
   const s = task.status;

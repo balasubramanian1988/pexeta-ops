@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getMember, isManager } from "@/lib/auth";
+import { canAssign, getMember } from "@/lib/auth";
 import { getLookups } from "@/lib/data";
 import { todayIST } from "@/lib/tasks";
 import { PageHeader } from "@/components/ui";
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "New task" };
 
 export default async function NewTaskPage() {
   const me = await getMember();
-  if (!isManager(me.role)) redirect("/my-work");
+  if (!canAssign(me.role)) redirect("/my-work");
   const lookups = await getLookups();
   return (
     <>

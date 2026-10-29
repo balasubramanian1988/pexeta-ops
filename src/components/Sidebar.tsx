@@ -7,7 +7,7 @@ import { useState } from "react";
 import { LayoutDashboard, ListChecks, ClipboardList, FileText, Settings, Menu, X, LogOut } from "lucide-react";
 import type { Member } from "@/lib/types";
 
-const ROLE_LABEL = { vp: "Vice President", admin: "Admin", member: "Team member" } as const;
+const ROLE_LABEL = { vp: "Vice President", admin: "Admin", lead: "Team lead", member: "Team member" } as const;
 
 export default function Sidebar({ member }: { member: Member }) {
   const path = usePathname();

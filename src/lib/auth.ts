@@ -29,3 +29,13 @@ export const getMember = cache(async (): Promise<Member> => {
 export function isManager(role: Role) {
   return role === "vp" || role === "admin";
 }
+
+/** VP, admins and team leads can create and assign tasks. Closure stays with the roles in Settings. */
+export function canAssign(role: Role) {
+  return isManager(role) || role === "lead";
+}
+
+/** Reassign, change due date and edit: managers on any task, team leads on tasks they assigned. */
+export function canManageTask(member: { id: string; role: Role }, task: { created_by: string }) {
+  return isManager(member.role) || (member.role === "lead" && task.created_by === member.id);
+}

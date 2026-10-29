@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Clock, Hourglass, ListTodo, Octagon } from "lucide-react";
-import { getMember, isManager } from "@/lib/auth";
+import { canAssign, getMember, isManager } from "@/lib/auth";
 import { getLookups, getRecentActivity, getSettings, getTasks } from "@/lib/data";
 import { activityText, PRIORITY_RANK, formatDateTime, isAckLate, isOpen, isOverdue, msAgo, todayIST } from "@/lib/tasks";
 import { Avatar, Empty, PageHeader, TaskLine } from "@/components/ui";
@@ -70,7 +70,7 @@ export default async function DashboardPage() {
         eyebrow={manager ? "VP oversight" : "Overview"}
         title={`Good to see you, ${firstName}`}
         sub={manager ? "What needs attention across the team today." : "What needs your attention today."}
-        action={manager ? <Link href="/tasks/new" className="btn btn-primary">New task</Link> : undefined}
+        action={canAssign(me.role) ? <Link href="/tasks/new" className="btn btn-primary">New task</Link> : undefined}
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">

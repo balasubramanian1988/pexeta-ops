@@ -52,6 +52,7 @@ export function MemberForm() {
       <input name="email" type="email" placeholder="Google work email" className="field sm:col-span-2" />
       <select name="role" defaultValue="member" className="field">
         <option value="member">Team member</option>
+        <option value="lead">Team lead (can assign tasks)</option>
         <option value="admin">Admin</option>
         <option value="vp">VP</option>
       </select>

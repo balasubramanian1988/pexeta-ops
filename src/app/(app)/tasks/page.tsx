@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getMember, isManager } from "@/lib/auth";
+import { canAssign, getMember } from "@/lib/auth";
 import { getLookups, getSettings, getTasks } from "@/lib/data";
 import { OPEN_STATUSES, PRIORITY_LABEL, STATUS_LABEL, isAckLate, isOverdue, taskRef } from "@/lib/tasks";
 import { Avatar, DueText, Empty, PageHeader, PriorityTag, StatusBadge } from "@/components/ui";
@@ -12,7 +12,7 @@ type SP = { q?: string; assignee?: string; market?: string; client?: string; sta
 
 export default async function TasksPage({ searchParams }: { searchParams: Promise<SP> }) {
   const [me, all, settings, lookups, sp] = await Promise.all([getMember(), getTasks(), getSettings(), getLookups(), searchParams]);
-  const manager = isManager(me.role);
+  const manager = canAssign(me.role);
 
   const q = (sp.q ?? "").toLowerCase();
   const tasks = all.filter((t) => {

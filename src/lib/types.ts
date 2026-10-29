@@ -1,4 +1,4 @@
-export type Role = "vp" | "admin" | "member";
+export type Role = "vp" | "admin" | "lead" | "member";
 export type Priority = "low" | "medium" | "high" | "urgent";
 export type Status = "assigned" | "acknowledged" | "in_progress" | "blocked" | "completed" | "closed" | "reopened";
 

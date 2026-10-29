@@ -125,7 +125,7 @@ export async function notifyTaskEvent(taskId: string, event: TaskEvent, opts: Op
         break;
       }
       case "closed": {
-        const to = people(ctx, opts.actorId, owner);
+        const to = people(ctx, opts.actorId, owner, creator?.role === "lead" ? creator : undefined);
         await mail(to, [], `Closed: ${ref} · ${t.title}`, "Your task has been closed", `${by} verified and closed this task. Well done.`, t, ctx, noteBox());
         await sendChat(chatLine(t, ctx, `✅ *Closed* by ${actor?.full_name ?? "someone"}`));
         break;

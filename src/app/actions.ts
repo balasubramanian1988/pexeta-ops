@@ -4,7 +4,7 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
-import { getMember, isManager } from "@/lib/auth";
+import { canAssign, canManageTask, getMember, isManager } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Member, Priority, Role, Settings, Status, Task } from "@/lib/types";
 import { notifyTaskEvent, type TaskEvent } from "@/lib/notify/events";
@@ -59,7 +59,7 @@ function canClose(role: Role, s: Settings) {
 // ---------------- Create ----------------
 export async function createTask(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
   const me = await getMember();
-  if (!isManager(me.role)) return { ok: false, error: "Only the VP or an admin can create and assign tasks." };
+  if (!canAssign(me.role)) return { ok: false, error: "Only the VP, an admin or a team lead can create and assign tasks." };
 
   const title = str(fd, "title");
   const assignee_id = str(fd, "assignee_id");
@@ -122,6 +122,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
 
   const s = await loadSettings();
   const manager = isManager(me.role);
+  const canManage = canManageTask(me, task);
   const isAssignee = task.assignee_id === me.id;
   const visible = manager || isAssignee || task.created_by === me.id;
   if (!visible) return { ok: false, error: "You don't have access to this task." };
@@ -209,7 +210,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         break;
       }
       case "reassign": {
-        if (!manager) return deny("Only the VP or an admin can reassign.");
+        if (!canManage) return deny("Only the VP, an admin or the team lead who assigned this task can reassign it.");
         const to = str(fd, "assignee_id");
         if (!to || to === task.assignee_id) return deny("Choose a different team member.");
         const { data: target } = await createAdminClient().from("team_members").select("full_name").eq("id", to).single();
@@ -224,7 +225,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         break;
       }
       case "due": {
-        if (!manager) return deny("Only the VP or an admin can change the due date.");
+        if (!canManage) return deny("Only the VP, an admin or the team lead who assigned this task can change the due date.");
         const due = str(fd, "due_date");
         if (!due) return deny("Choose the new due date.");
         await update(id, { due_date: due });
@@ -233,7 +234,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         break;
       }
       case "edit": {
-        if (!manager) return deny("Only the VP or an admin can edit task details.");
+        if (!canManage) return deny("Only the VP, an admin or the team lead who assigned this task can edit it.");
         const title = str(fd, "title");
         const priority = str(fd, "priority") as Priority;
         if (!title) return deny("The title can't be empty.");
@@ -287,7 +288,7 @@ export async function upsertMember(_prev: ActionResult, fd: FormData): Promise<A
   const role = str(fd, "role") as Role;
   if (!email.includes("@")) return { ok: false, error: "Enter the member's Google work email." };
   if (!full_name) return { ok: false, error: "Enter the member's name." };
-  if (!["vp", "admin", "member"].includes(role)) return { ok: false, error: "Choose a role." };
+  if (!["vp", "admin", "lead", "member"].includes(role)) return { ok: false, error: "Choose a role." };
   if (role === "vp" && me.role !== "vp" && me.role !== "admin") return { ok: false, error: "Not allowed." };
   const { error } = await createAdminClient()
     .from("team_members")

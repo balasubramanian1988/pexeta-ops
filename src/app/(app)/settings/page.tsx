@@ -38,7 +38,7 @@ export default async function SettingsPage() {
   const me = await getMember();
   if (!isManager(me.role)) redirect("/dashboard");
   const [settings, lookups] = await Promise.all([getSettings(), getLookups()]);
-  const ROLE = { vp: "VP", admin: "Admin", member: "Member" } as const;
+  const ROLE = { vp: "VP", admin: "Admin", lead: "Team lead", member: "Member" } as const;
 
   return (
     <>
