@@ -29,6 +29,9 @@ export type Task = {
   dependency: string;
   blocked_reason: string;
   progress: number;
+  client_visible: boolean;    // shown to the brand in the seller dashboard
+  client_title: string;       // plain-language title for the brand
+  waiting_on_client: boolean; // blocked on the brand; the block reason is shown to them as "what we need"
   assigned_at: string;
   acknowledged_at: string | null;
   completed_at: string | null;

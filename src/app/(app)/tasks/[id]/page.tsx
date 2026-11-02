@@ -110,6 +110,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               {["acknowledged", "in_progress", "assigned", "reopened"].includes(s) && (
                 <ActionForm taskId={task.id} action="block" label="Mark blocked" variant="danger">
                   <input name="note" className="field" placeholder="Add the reason so the next move is clear" />
+                  {task.client_visible && <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="waiting_on_client" /> Waiting on the client (they will see this reason as &quot;what we need&quot;)</label>}
                 </ActionForm>
               )}
               {s === "blocked" && (
@@ -177,6 +178,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                     {lookups.marketplaces.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                   <input name="dependency" defaultValue={task.dependency} className="field" placeholder="Depends on" />
+                  <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="client_visible" defaultChecked={task.client_visible} /> Show this task to the client</label>
+                  <input name="client_title" defaultValue={task.client_title} className="field" placeholder="Client-facing title (blank = task title)" />
                 </ActionForm>
               </details>
             </section>

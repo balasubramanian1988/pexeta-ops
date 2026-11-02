@@ -139,3 +139,8 @@ insert into team_members (email, full_name, role) values
   ('ananth@pexeta.in', 'Vijayananth', 'vp'),
   ('bala@pexeta.in', 'Balasubramanian VA', 'admin')
 on conflict (email) do nothing;
+
+-- Client view (also in 005_client_view.sql, which adds the dashboard's read function)
+alter table tasks add column if not exists client_visible boolean not null default false;
+alter table tasks add column if not exists client_title text not null default '';
+alter table tasks add column if not exists waiting_on_client boolean not null default false;

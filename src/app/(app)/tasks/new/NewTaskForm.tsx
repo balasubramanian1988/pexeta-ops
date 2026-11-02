@@ -54,6 +54,12 @@ export default function NewTaskForm({ team, clients, marketplaces, today }: { te
         <label className="label" htmlFor="dependency">Depends on (optional)</label>
         <input id="dependency" name="dependency" className="field" placeholder="Client to share new images" />
       </div>
+      <fieldset className="rounded-lg border border-line p-4 sm:col-span-2">
+        <legend className="px-1 text-sm font-semibold">Client view (seller dashboard)</legend>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="client_visible" /> Show this task to the client</label>
+        <input name="client_title" className="field mt-2" placeholder="Client-facing title, e.g. Improve the product page for Kajal (leave blank to use the title above)" />
+        <p className="mt-1 text-xs text-muted">The client sees only this title and whether it is in progress, waiting on them, or completed (after VP closure). Description, owner and notes stay internal.</p>
+      </fieldset>
       {state.error && <p className="text-sm text-red-700 sm:col-span-2">{state.error}</p>}
       <div className="sm:col-span-2">
         <button className="btn btn-primary" disabled={pending}>{pending ? "Assigning…" : "Create and assign"}</button>

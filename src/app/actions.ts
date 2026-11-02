@@ -82,6 +82,8 @@ export async function createTask(_prev: ActionResult, fd: FormData): Promise<Act
       priority,
       due_date,
       dependency: str(fd, "dependency"),
+      client_visible: fd.get("client_visible") === "on",
+      client_title: str(fd, "client_title"),
     })
     .select("id")
     .single();
@@ -164,7 +166,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         if (!isAssignee && !manager) return deny("Only the owner can mark a task blocked.");
         if (!note) return deny("Add the reason so the next move is clear.");
         if (!["acknowledged", "in_progress", "reopened", "assigned"].includes(status)) return deny("This task can't be blocked from its current state.");
-        await update(id, { status: "blocked", blocked_reason: note });
+        await update(id, { status: "blocked", blocked_reason: note, waiting_on_client: fd.get("waiting_on_client") === "on" });
         await log(id, me, "blocked", note);
         notify(id, "blocked", me.id, note);
         break;
@@ -172,7 +174,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
       case "unblock": {
         if (!isAssignee && !manager) return deny("Only the owner can unblock the task.");
         if (status !== "blocked") return deny("This task isn't blocked.");
-        await update(id, { status: "in_progress", blocked_reason: "" });
+        await update(id, { waiting_on_client: false, status: "in_progress", blocked_reason: "" });
         await log(id, me, "unblocked", note);
         notify(id, "unblocked", me.id, note);
         break;
@@ -246,6 +248,8 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
           client_id: str(fd, "client_id") || null,
           marketplace_id: str(fd, "marketplace_id") || null,
           dependency: str(fd, "dependency"),
+          client_visible: fd.get("client_visible") === "on",
+          client_title: str(fd, "client_title"),
         });
         await log(id, me, "edited", "");
         break;
