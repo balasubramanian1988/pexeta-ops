@@ -27,7 +27,7 @@ export default async function MyWorkPage({ searchParams }: { searchParams: Promi
     { title: "Blocked", hint: "Waiting on something. Keep the reason current.", items: take((t) => t.status === "blocked") },
     { title: "Due this week", hint: "", items: take((t) => t.status !== "completed" && daysUntil(t.due_date, today) <= 7) },
     { title: "Later", hint: "", items: take((t) => t.status !== "completed") },
-    { title: "Submitted, awaiting VP closure", hint: "Nothing to do unless the VP reopens it.", items: take((t) => t.status === "completed") },
+    { title: "Submitted, awaiting closure", hint: "Nothing to do unless it is reopened.", items: take((t) => t.status === "completed") },
   ];
 
   const markets = lookups.marketplaces.filter((m) => all.some((t) => t.assignee_id === me.id && t.marketplace_id === m.id));

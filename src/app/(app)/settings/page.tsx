@@ -17,7 +17,7 @@ const STATUS_MEANING: Record<Status, string> = {
   in_progress: "Work has started. Progress updates go here.",
   blocked: "Can't move forward. A reason is always required.",
   completed: "The owner says it's done. Waiting for VP verification.",
-  closed: "Verified and closed by the VP. Final state.",
+  closed: "Verified and closed by the VP or an admin (per closure settings). Final state.",
   reopened: "Sent back with feedback. Needs acknowledgement again.",
 };
 
@@ -138,7 +138,7 @@ export default async function SettingsPage() {
             ))}
           </dl>
           <p className="mt-4 text-xs text-muted">
-            Flow: Assigned → Acknowledged → In progress → (Blocked) → Awaiting VP closure → Closed. The VP can reopen completed or closed work with feedback.
+            Flow: Assigned → Acknowledged → In progress → (Blocked) → Awaiting closure → Closed. Whoever is allowed to close (VP and/or admins, below) can reopen completed or closed work with feedback.
           </p>
         </section>
       </div>

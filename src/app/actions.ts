@@ -188,7 +188,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         break;
       }
       case "close": {
-        if (!canClose(me.role, s)) return deny("Only the VP can close tasks.");
+        if (!canClose(me.role, s)) return deny("You are not allowed to close tasks. Ask the VP to allow admins in Settings.");
         if (status !== "completed") return deny("Only tasks awaiting closure can be closed.");
         await update(id, { status: "closed", closed_at: now });
         await log(id, me, "closed", note);
@@ -196,7 +196,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
         break;
       }
       case "reopen": {
-        if (!canClose(me.role, s)) return deny("Only the VP can reopen tasks.");
+        if (!canClose(me.role, s)) return deny("You are not allowed to reopen tasks.");
         if (status !== "completed" && status !== "closed") return deny("Only completed or closed tasks can be reopened.");
         if (!note) return deny("Add feedback so the owner knows what to fix.");
         await update(id, { status: "reopened", closed_at: null, completed_at: null, assigned_at: now, acknowledged_at: null });

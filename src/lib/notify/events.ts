@@ -121,7 +121,7 @@ export async function notifyTaskEvent(taskId: string, event: TaskEvent, opts: Op
         const closers = ctx.team.filter((m) => m.active && ctx.settings.closure_roles.includes(m.role));
         const to = people(ctx, opts.actorId, closers);
         await mail(to, [], `Ready for closure: ${ref} · ${t.title}`, "A task is awaiting your closure", `${by} has submitted this task as done. Please verify and close it, or reopen it with feedback.`, t, ctx, noteBox());
-        await sendChat(chatLine(t, ctx, `🟠 *Submitted for VP closure* by ${actor?.full_name ?? "someone"}`, n));
+        await sendChat(chatLine(t, ctx, `🟠 *Submitted for closure* by ${actor?.full_name ?? "someone"}`, n));
         break;
       }
       case "closed": {

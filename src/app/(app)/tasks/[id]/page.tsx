@@ -119,18 +119,18 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                 </ActionForm>
               )}
               {["acknowledged", "in_progress"].includes(s) && (
-                <ActionForm taskId={task.id} action="complete" label="Submit for VP closure" variant="primary">
+                <ActionForm taskId={task.id} action="complete" label="Submit for closure" variant="primary">
                   <textarea name="note" rows={2} className="field" placeholder="What was done, with links or evidence" />
                 </ActionForm>
               )}
-              {s === "completed" && <p className="text-sm text-muted">Submitted. Waiting for the VP to verify and close.</p>}
+              {s === "completed" && <p className="text-sm text-muted">Submitted. Waiting for verification and closure.</p>}
               {s === "closed" && <p className="text-sm text-muted">This task is closed.</p>}
             </section>
           )}
 
           {canClose && (s === "completed" || s === "closed") && (
             <section className="card space-y-4 p-5">
-              <h2 className="eyebrow">VP closure</h2>
+              <h2 className="eyebrow">Closure</h2>
               {s === "completed" && (
                 <ActionForm taskId={task.id} action="close" label="Verify and close" variant="dark">
                   <input name="note" className="field" placeholder="Closing note (optional)" />

@@ -6,7 +6,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   acknowledged: "Acknowledged",
   in_progress: "In progress",
   blocked: "Blocked",
-  completed: "Awaiting VP closure",
+  completed: "Awaiting closure",
   closed: "Closed",
   reopened: "Reopened",
 };
@@ -119,7 +119,7 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   progress: "Updated progress",
   blocked: "Marked blocked",
   unblocked: "Unblocked",
-  completed: "Submitted for VP closure",
+  completed: "Submitted for closure",
   closed: "Verified and closed",
   reopened: "Reopened",
   reassigned: "Reassigned",
