@@ -7,7 +7,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 
 export const SCOPES = {
   calendar: "https://www.googleapis.com/auth/calendar.events",
-  chat: ["https://www.googleapis.com/auth/chat.spaces.create", "https://www.googleapis.com/auth/chat.spaces.readonly"],
+  chat: ["https://www.googleapis.com/auth/chat.spaces.readonly"],
 };
 
 export function googleConfigured() {

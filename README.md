@@ -157,14 +157,14 @@ src/app/recurring-actions.ts         create / pause / delete rules
    - Google Chat API → **Configuration** tab: App name `Pexeta Ops`, an avatar URL (e.g. `https://ops.pexeta.in/pexeta-logo.png`), a short description.
      Turn interactive features **off**. Save.
    - Google Admin → Security → API controls → Manage domain-wide delegation → **edit** the Pexeta Ops entry so the scopes are (comma separated):
-     `https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/chat.spaces.create,https://www.googleapis.com/auth/chat.spaces.readonly`
+     `https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/chat.spaces.readonly`
    - Vercel → Environment Variables: `GOOGLE_CHAT_ENABLED` = `1`. Redeploy.
 
 ### What's new
 | Feature | Where | How it works |
 |---|---|---|
 | Who's free | `/team` | Each person's status right now from their own Google Calendar: free (and next meeting), in a meeting until…, or out of office. All-day events and declined invites are ignored. |
-| Message | `/team`, task page | Opens the Google Chat DM with that person (creates it if you've never chatted). Falls back to email until Chat is connected. |
+| Message | `/team`, task page | Opens your existing Google Chat DM with that person. Ops never creates chats (to avoid duplicates); if none is found it opens Google Chat so you can start one. Falls back to email until Chat is connected. |
 | Call | `/team`, task page | Starts a 30-minute Google Meet now, invites the person (they get a calendar notification) and opens the call. Calls from a task are logged on its timeline. |
 | Today | top of `/my-work` | Overdue, due today, to acknowledge, blocked and today's meetings, with the overdue and due-today tasks listed in priority order. |
 | Files and links | task page | Attach Drive files, Sheets, Docs or any URL with a label; recognised Google file types get an icon. |

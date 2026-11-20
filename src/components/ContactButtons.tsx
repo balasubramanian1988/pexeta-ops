@@ -48,6 +48,7 @@ function LinkButton({
         {pending ? "Opening…" : label}
       </button>
       {state.error && <span className="mt-1 max-w-[14rem] text-[11px] leading-tight text-red-700">{state.error}</span>}
+      {state.ok && state.note && <span className="mt-1 max-w-[14rem] text-[11px] leading-tight text-muted">{state.note}</span>}
       {state.ok && state.url && (
         <a href={state.url} target="_blank" rel="noreferrer" className="mt-1 text-[11px] text-brand underline">Open again</a>
       )}

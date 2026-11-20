@@ -18,22 +18,17 @@ function dmUrl(space: Space) {
   return `https://mail.google.com/chat/u/0/#chat/dm/${id}`;
 }
 
-/** URL of the Google Chat DM between `from` and `to`, creating the DM if they've never chatted. */
-export async function directMessageUrl(from: string, to: string): Promise<string> {
-  const headers = { Authorization: `Bearer ${await accessToken(from, SCOPES.chat)}`, "Content-Type": "application/json" };
+export const CHAT_HOME = "https://mail.google.com/chat/u/0/#chat/home";
 
+/**
+ * URL of the existing Google Chat DM between `from` and `to`, or null if Google doesn't find one.
+ * Ops never creates a DM itself: Google can miss a chat started in the Chat app, and creating one
+ * would leave the two people with a second, duplicate conversation.
+ */
+export async function directMessageUrl(from: string, to: string): Promise<string | null> {
+  const headers = { Authorization: `Bearer ${await accessToken(from, SCOPES.chat)}` };
   const found = await fetch(`${API}/spaces:findDirectMessage?name=${encodeURIComponent(`users/${to.toLowerCase()}`)}`, { headers });
   if (found.ok) return dmUrl((await found.json()) as Space);
-  if (found.status !== 404) throw new Error(`Google Chat findDirectMessage failed: ${found.status} ${await found.text()}`);
-
-  const created = await fetch(`${API}/spaces:setup`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      space: { spaceType: "DIRECT_MESSAGE" },
-      memberships: [{ member: { name: `users/${to.toLowerCase()}`, type: "HUMAN" } }],
-    }),
-  });
-  if (!created.ok) throw new Error(`Google Chat spaces.setup failed: ${created.status} ${await created.text()}`);
-  return dmUrl((await created.json()) as Space);
+  if (found.status === 404) return null;
+  throw new Error(`Google Chat findDirectMessage failed: ${found.status} ${await found.text()}`);
 }

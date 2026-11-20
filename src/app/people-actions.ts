@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { getMember } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calendarEnabled, createEvent } from "@/lib/google/calendar";
-import { chatEnabled, directMessageUrl } from "@/lib/google/chat";
+import { CHAT_HOME, chatEnabled, directMessageUrl } from "@/lib/google/chat";
 
-export type LinkResult = { ok: boolean; url?: string; error?: string };
+export type LinkResult = { ok: boolean; url?: string; error?: string; note?: string };
 
 async function target(fd: FormData) {
   const id = String(fd.get("member_id") ?? "");
@@ -21,7 +21,10 @@ export async function openChat(_prev: LinkResult, fd: FormData): Promise<LinkRes
   if (!person) return { ok: false, error: "That team member isn't active." };
   if (person.id === me.id) return { ok: false, error: "That's you." };
   try {
-    return { ok: true, url: await directMessageUrl(me.email, person.email) };
+    const url = await directMessageUrl(me.email, person.email);
+    if (url) return { ok: true, url };
+    // No existing chat found: open Google Chat rather than creating a duplicate conversation.
+    return { ok: true, url: CHAT_HOME, note: `Opened Google Chat. Start a chat with ${person.full_name} from "New chat".` };
   } catch (e) {
     console.error("[pexeta-ops] open chat failed:", e);
     return { ok: false, error: "Google Chat didn't respond. Check that the Chat API is set up and the chat scopes are allowed." };
