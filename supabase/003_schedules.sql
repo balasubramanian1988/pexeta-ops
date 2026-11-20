@@ -17,7 +17,8 @@ select cron.schedule('pexeta-sla-reminders', '30 3-13 * * *', $$
   select net.http_post(
     url := 'https://ops.pexeta.in/api/cron/sla',
     headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET', 'Content-Type', 'application/json'),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
   );
 $$);
 
@@ -26,7 +27,8 @@ select cron.schedule('pexeta-daily-report', '30 3 * * *', $$
   select net.http_post(
     url := 'https://ops.pexeta.in/api/cron/daily-report',
     headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET', 'Content-Type', 'application/json'),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
   );
 $$);
 
@@ -35,7 +37,8 @@ select cron.schedule('pexeta-weekly-reports', '30 3 * * 1', $$
   select net.http_post(
     url := 'https://ops.pexeta.in/api/cron/weekly-reports',
     headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET', 'Content-Type', 'application/json'),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
   );
 $$);
 

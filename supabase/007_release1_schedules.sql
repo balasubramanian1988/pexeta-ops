@@ -12,7 +12,8 @@ select cron.schedule('pexeta-recurring-tasks', '0 3 * * *', $$
   select net.http_post(
     url := 'https://ops.pexeta.in/api/cron/recurring',
     headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET', 'Content-Type', 'application/json'),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
   );
 $$);
 
@@ -21,7 +22,8 @@ select cron.schedule('pexeta-daily-digest', '0 13 * * *', $$
   select net.http_post(
     url := 'https://ops.pexeta.in/api/cron/digest',
     headers := jsonb_build_object('Authorization', 'Bearer YOUR_CRON_SECRET', 'Content-Type', 'application/json'),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    timeout_milliseconds := 30000
   );
 $$);
 
