@@ -12,6 +12,7 @@ export type Settings = {
   status_notes: Record<string, string>;
   daily_report_enabled?: boolean;
   reminders_enabled?: boolean;
+  digest_enabled?: boolean;
 };
 
 export type Task = {

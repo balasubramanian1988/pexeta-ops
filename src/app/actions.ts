@@ -8,10 +8,22 @@ import { canAssign, canManageTask, getMember, isManager } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Member, Priority, Role, Settings, Status, Task } from "@/lib/types";
 import { notifyTaskEvent, type TaskEvent } from "@/lib/notify/events";
+import { syncTaskCalendar } from "@/lib/calendar-sync";
+import { findMentions } from "@/lib/mentions";
 
 /** Send notifications after the response, so a slow mail server never slows or fails an action. */
-function notify(taskId: string, event: TaskEvent, actorId: string, note = "", previousAssigneeId?: string) {
-  after(() => notifyTaskEvent(taskId, event, { actorId, note, previousAssigneeId }));
+function notify(taskId: string, event: TaskEvent, actorId: string, note = "", previousAssigneeId?: string, mentionedIds?: string[]) {
+  after(() => notifyTaskEvent(taskId, event, { actorId, note, previousAssigneeId, mentionedIds }));
+}
+
+/** Keep the task's due date in the owner's Google Calendar (background; no-op until Calendar is connected). */
+function syncCalendar(taskId: string) {
+  after(() => syncTaskCalendar(taskId));
+}
+
+async function isWatcher(taskId: string, memberId: string) {
+  const { data } = await createAdminClient().from("task_watchers").select("task_id").eq("task_id", taskId).eq("member_id", memberId).maybeSingle();
+  return Boolean(data);
 }
 
 export type ActionResult = { ok: boolean; error?: string };
@@ -91,6 +103,7 @@ export async function createTask(_prev: ActionResult, fd: FormData): Promise<Act
 
   await log(data.id, me, "created", "");
   notify(data.id, "created", me.id);
+  syncCalendar(data.id);
   refresh(data.id);
   redirect(`/tasks/${data.id}`);
 }
@@ -126,7 +139,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
   const manager = isManager(me.role);
   const canManage = canManageTask(me, task);
   const isAssignee = task.assignee_id === me.id;
-  const visible = manager || isAssignee || task.created_by === me.id;
+  const visible = manager || isAssignee || task.created_by === me.id || (await isWatcher(id, me.id));
   if (!visible) return { ok: false, error: "You don't have access to this task." };
 
   const now = new Date().toISOString();
@@ -207,7 +220,17 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
       case "comment": {
         if (!note) return deny("Write a comment first.");
         await log(id, me, "comment", note);
-        notify(id, "comment", me.id, note);
+        // @mentions: the people mentioned can now see and follow the task, and are emailed straight away.
+        const { data: team } = await createAdminClient().from("team_members").select("id, full_name, active");
+        const mentioned = findMentions(note, (team ?? []) as { id: string; full_name: string; active: boolean }[]).filter((m) => m.id !== me.id);
+        const newWatchers = mentioned.filter((m) => m.id !== task.assignee_id && m.id !== task.created_by);
+        if (newWatchers.length) {
+          const { error: wErr } = await createAdminClient()
+            .from("task_watchers")
+            .upsert(newWatchers.map((m) => ({ task_id: id, member_id: m.id })), { onConflict: "task_id,member_id", ignoreDuplicates: true });
+          if (wErr) console.error("[pexeta-ops] task_watchers (run supabase/006_release1.sql):", wErr.message);
+        }
+        notify(id, "comment", me.id, note, undefined, mentioned.map((m) => m.id));
         await update(id, {});
         break;
       }
@@ -261,6 +284,7 @@ export async function taskAction(_prev: ActionResult, fd: FormData): Promise<Act
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
   }
 
+  if (!["comment", "progress"].includes(action)) syncCalendar(id);
   refresh(id);
   return { ok: true };
 }

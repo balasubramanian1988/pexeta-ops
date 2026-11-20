@@ -4,6 +4,8 @@ import { getLookups, getSettings, getTasks } from "@/lib/data";
 import { PRIORITY_RANK, daysUntil, isOverdue, needsAck, todayIST } from "@/lib/tasks";
 import { Empty, PageHeader, TaskLine } from "@/components/ui";
 import type { Task } from "@/lib/types";
+import Link from "next/link";
+import { dayLabel, getUpcoming, timeRange } from "@/lib/meetings";
 
 export const metadata: Metadata = { title: "My work" };
 
@@ -30,6 +32,8 @@ export default async function MyWorkPage({ searchParams }: { searchParams: Promi
     { title: "Submitted, awaiting closure", hint: "Nothing to do unless it is reopened.", items: take((t) => t.status === "completed") },
   ];
 
+  const upcoming = await getUpcoming(me.email);
+
   const markets = lookups.marketplaces.filter((m) => all.some((t) => t.assignee_id === me.id && t.marketplace_id === m.id));
 
   return (
@@ -46,6 +50,27 @@ export default async function MyWorkPage({ searchParams }: { searchParams: Promi
         </div>
       )}
       <div className="space-y-5">
+        <section className="card">
+          <div className="flex items-center justify-between border-b border-line px-4 py-3">
+            <h2 className="text-sm font-bold text-navy">Upcoming meetings <span className="tabular ml-1 text-muted">{upcoming.length}</span></h2>
+            <Link href="/meetings" className="text-xs font-semibold text-brand hover:underline">Schedule</Link>
+          </div>
+          {upcoming.length === 0 ? (
+            <Empty>No meetings today or tomorrow.</Empty>
+          ) : (
+            <div className="divide-y divide-line">
+              {upcoming.map((e) => (
+                <div key={e.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-ink">{e.title}</div>
+                    <div className="text-xs text-muted">{dayLabel(e.start)} · {timeRange(e.start, e.end)}</div>
+                  </div>
+                  {e.meetUrl && <a href={e.meetUrl} target="_blank" rel="noreferrer" className="btn btn-primary px-3 py-1.5 text-xs">Join Meet</a>}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
         {groups.map((g) =>
           g.items.length === 0 ? null : (
             <section key={g.title} className="card">

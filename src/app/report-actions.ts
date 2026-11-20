@@ -8,6 +8,9 @@ import type { ActionResult } from "./actions";
 import { loadCtx } from "@/lib/notify/context";
 import { sendDailyReport } from "@/lib/notify/daily";
 import { runSlaReminders } from "@/lib/notify/reminders";
+import { sendDigests } from "@/lib/notify/digest";
+import { runRecurring } from "@/lib/recurring";
+import { syncAllOpenTasks } from "@/lib/calendar-sync";
 import { sendEmail } from "@/lib/notify/send";
 import { generateWeeklyDrafts, renderClientReport, reportItems } from "@/lib/notify/weekly";
 
@@ -78,6 +81,19 @@ export async function runJobNow(_prev: ActionResult, fd: FormData): Promise<Acti
       revalidatePath("/reports");
       return { ok: true, message: `${r.clients} report${r.clients === 1 ? "" : "s"} ready for ${r.weekStart} – ${r.weekEnd} (${r.created} new).` };
     }
+    if (job === "digest") {
+      const r = await sendDigests();
+      return { ok: true, message: `Digest: ${r.updates} update${r.updates === 1 ? "" : "s"} for ${r.people} people, ${r.emails} email${r.emails === 1 ? "" : "s"} sent.` };
+    }
+    if (job === "calendar") {
+      const r = await syncAllOpenTasks();
+      return { ok: true, message: `Calendar: due dates synced for ${r.tasks} open task${r.tasks === 1 ? "" : "s"}.` };
+    }
+    if (job === "recurring") {
+      const r = await runRecurring();
+      revalidatePath("/tasks");
+      return { ok: true, message: `Recurring: ${r.created} task${r.created === 1 ? "" : "s"} created for ${r.date}.` };
+    }
     if (job === "reminders") {
       const r = await runSlaReminders();
       if ("skipped" in r) return { ok: false, error: r.skipped };
@@ -97,6 +113,7 @@ export async function saveNotifySettings(_prev: ActionResult, fd: FormData): Pro
     .update({
       daily_report_enabled: fd.get("daily_report_enabled") === "on",
       reminders_enabled: fd.get("reminders_enabled") === "on",
+      digest_enabled: fd.get("digest_enabled") === "on",
       updated_at: new Date().toISOString(),
     })
     .eq("id", 1);

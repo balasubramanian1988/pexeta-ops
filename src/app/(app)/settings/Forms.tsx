@@ -93,6 +93,10 @@ export function NotifySettingsForm({ settings }: { settings: Settings }) {
         <input type="checkbox" name="reminders_enabled" defaultChecked={settings.reminders_enabled !== false} />
         Send SLA reminders (hourly, 9 am–7 pm)
       </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="digest_enabled" defaultChecked={settings.digest_enabled !== false} />
+        Bundle routine updates into one evening digest (6:30 pm). Urgent ones still go instantly.
+      </label>
       <div className="flex items-center gap-3 pt-1">
         <button className="btn btn-dark" disabled={pending}>{pending ? "Saving…" : "Save"}</button>
         <Msg state={state} okText="Saved." />

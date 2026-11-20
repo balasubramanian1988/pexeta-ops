@@ -65,6 +65,9 @@ export default async function SettingsPage() {
                 <RunJobButton job="daily" label="Send daily report now" />
                 <RunJobButton job="reminders" label="Check reminders now" />
                 <RunJobButton job="weekly" label="Draft weekly reports now" />
+                <RunJobButton job="digest" label="Send digests now" />
+                <RunJobButton job="recurring" label="Create today's recurring tasks" />
+                <RunJobButton job="calendar" label="Sync task deadlines to Calendar" />
               </div>
             </div>
           </div>

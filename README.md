@@ -106,3 +106,41 @@ Nobody is emailed about their own action. Inactive members get nothing.
 4. **Vercel → Settings → Environment Variables:** add `RESEND_API_KEY`, `EMAIL_FROM`, `APP_URL`, `GOOGLE_CHAT_WEBHOOK_URL`, `CRON_SECRET` (see `.env.example`), then redeploy.
 5. **Schedules:** open `supabase/003_schedules.sql`, replace `YOUR_CRON_SECRET` (three places) with your CRON_SECRET, and run it in the SQL Editor.
 6. **Test:** Settings → Notifications and reports → "Send daily report now", "Check reminders now" and "Draft weekly reports now".
+
+
+---
+
+## Release 1: Calendar & Meet, daily digest, recurring tasks, @mentions
+
+### Setup (once)
+1. **Database:** Supabase → SQL Editor → run `supabase/006_release1.sql`, then `supabase/007_release1_schedules.sql`
+   (replace `YOUR_CRON_SECRET` with the same `CRON_SECRET` used in 003).
+2. **Google Calendar** (optional; everything else works without it):
+   - Google Cloud Console → enable **Google Calendar API** → create a **service account** → Keys → add a **JSON key**.
+   - Google Admin → Security → Access and data control → API controls → **Manage domain-wide delegation** → Add new:
+     the service account's **Unique ID** and scope `https://www.googleapis.com/auth/calendar.events`.
+   - Vercel → Environment Variables: `GOOGLE_SA_EMAIL` (client_email) and `GOOGLE_SA_PRIVATE_KEY` (private_key). Redeploy.
+   - Then Settings → **Sync task deadlines to Calendar** once, so existing open tasks appear too.
+
+### What's new
+| Feature | Where | How it works |
+|---|---|---|
+| Meetings and reminders | `/meetings`, task page → "Schedule a call or reminder" | Creates the event in the organiser's Google Calendar with an optional Meet link; Google emails the invites. Cancelling notifies guests. Linked tasks get a timeline entry. |
+| Task deadlines in Calendar | automatic | Every open task appears as an all-day "Due: PX-…" event in its owner's calendar, with a pop-up at 9 am the day before. It moves on reassign or due-date change and disappears when the task is submitted or closed. |
+| Upcoming meetings | `/my-work` | Today's and tomorrow's meetings from the person's Google Calendar, with Join Meet buttons. |
+| Daily digest | 6:30 pm IST | Acknowledgements, starts, unblocks, closures, due-date changes and comments are bundled into one email per person. New assignments, blocks, submissions, reopens and @mentions are still sent instantly. Switch off in Settings to go back to instant emails. |
+| Recurring tasks | `/recurring` (VP, admins, leads) | Daily (Mon–Sat), weekly or monthly rules; a task is created and assigned at 8:30 am IST on each scheduled day. |
+| @mentions | task comments | Type `@Name` or click a name chip. The person is emailed straight away and can open, follow and comment on the task. |
+
+### Files
+```
+supabase/006_release1.sql            watchers, digest queue, recurring rules, meetings, calendar columns
+supabase/007_release1_schedules.sql  8:30 am recurring job, 6:30 pm digest job
+src/lib/google/calendar.ts           Calendar API via service account (no extra packages)
+src/lib/calendar-sync.ts             task due dates → owner's calendar
+src/lib/notify/digest.ts             evening digest
+src/lib/recurring.ts                 recurring rules
+src/lib/mentions.ts                  @mention handles
+src/app/meeting-actions.ts           schedule / cancel meetings
+src/app/recurring-actions.ts         create / pause / delete rules
+```

@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { runJobNow } from "@/app/report-actions";
 
-export function RunJobButton({ job, label, variant = "btn-outline" }: { job: "daily" | "weekly" | "reminders"; label: string; variant?: string }) {
+export function RunJobButton({ job, label, variant = "btn-outline" }: { job: "daily" | "weekly" | "reminders" | "digest" | "recurring" | "calendar"; label: string; variant?: string }) {
   const [state, action, pending] = useActionState(runJobNow, { ok: false });
   return (
     <form action={action} className="flex flex-col items-start gap-1.5 sm:items-end">

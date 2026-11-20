@@ -6,6 +6,9 @@ import { getActivity, getLookups, getSettings, getTask } from "@/lib/data";
 import { activityText, formatDate, formatDateTime, isAckLate, isOverdue, needsAck, taskRef } from "@/lib/tasks";
 import { Avatar, DueText, PriorityTag, StatusBadge } from "@/components/ui";
 import ActionForm from "./ActionForm";
+import CommentBox from "./CommentBox";
+import { createClient } from "@/lib/supabase/server";
+import { handleFor } from "@/lib/mentions";
 
 export const metadata: Metadata = { title: "Task" };
 
@@ -14,6 +17,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const [me, task, settings, lookups] = await Promise.all([getMember(), getTask(id), getSettings(), getLookups()]);
   if (!task) notFound();
   const activity = await getActivity(task.id);
+  const { data: watcherRows } = await (await createClient()).from("task_watchers").select("member_id").eq("task_id", task.id);
+  const watcherIds = (watcherRows ?? []).map((w) => w.member_id as string);
+  const activeTeam = lookups.team.filter((m) => m.active);
+  const mentionPeople = activeTeam
+    .filter((m) => m.id !== me.id)
+    .map((m) => ({ id: m.id, name: m.full_name, handle: handleFor(m, activeTeam) }));
 
   const manager = canManageTask(me, task);
   const isOwner = task.assignee_id === me.id;
@@ -29,6 +38,9 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     ["Progress", `${task.progress}%`],
     ["Assigned by", lookups.memberName[task.created_by] ?? "—"],
     ["Created", formatDateTime(task.created_at)],
+    ...(watcherIds.length
+      ? ([["Following", watcherIds.map((w) => lookups.memberName[w] ?? "—").join(", ")]] as [string, React.ReactNode][])
+      : []),
   ];
 
   return (
@@ -73,9 +85,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
 
           <section className="card p-5">
             <h2 className="eyebrow">Activity timeline</h2>
-            <ActionForm taskId={task.id} action="comment" label="Add comment" className="mt-4">
-              <textarea name="note" rows={2} className="field" placeholder="Add an update or question" />
-            </ActionForm>
+            <CommentBox taskId={task.id} people={mentionPeople} />
             <ol className="mt-6">
               {activity.map((a) => (
                 <li key={a.id} className="relative flex gap-3 border-l border-line pb-5 pl-5 last:pb-0">
@@ -95,6 +105,11 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <aside className="space-y-4">
+          <section className="card p-5">
+            <h2 className="eyebrow">Talk about it</h2>
+            <Link href={`/meetings?task=${task.id}`} className="btn btn-outline mt-3 w-full">Schedule a call or reminder</Link>
+            <p className="mt-2 text-xs text-muted">Creates a Google Calendar event with a Meet link, linked to this task.</p>
+          </section>
           {isOwner && (
             <section className="card space-y-4 p-5">
               <h2 className="eyebrow">Your actions</h2>

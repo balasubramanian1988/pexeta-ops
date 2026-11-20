@@ -126,6 +126,8 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   due_changed: "Changed due date",
   comment: "Commented",
   edited: "Edited details",
+  meeting_scheduled: "Scheduled a meeting",
+  reminder_set: "Set a reminder",
 };
 
 /** Timestamp (ms) for N days ago. */

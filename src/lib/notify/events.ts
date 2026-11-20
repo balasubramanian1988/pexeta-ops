@@ -1,6 +1,8 @@
 // Who hears about what. Called after each task action (in the background, so actions stay fast).
 // Rules: nobody is told about their own action; inactive members are skipped.
+// Urgent events are emailed straight away; routine ones go into the evening digest (see digest.ts).
 import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDate, PRIORITY_LABEL, STATUS_LABEL, taskRef } from "@/lib/tasks";
 import type { Member, Task } from "@/lib/types";
 import { loadCtx, loadTaskById, type Ctx } from "./context";
@@ -19,7 +21,7 @@ export type TaskEvent =
   | "due_changed"
   | "comment";
 
-type Opts = { actorId: string; note?: string; previousAssigneeId?: string };
+type Opts = { actorId: string; note?: string; previousAssigneeId?: string; mentionedIds?: string[] };
 
 function taskUrl(t: Task) {
   return `${APP_URL}/tasks/${t.id}`;
@@ -68,12 +70,34 @@ async function mail(to: Member[], cc: Member[], subject: string, title: string, 
   });
 }
 
+/**
+ * Routine update: queued for the evening digest. Falls back to an instant email if the digest
+ * is switched off in Settings or its table hasn't been created yet.
+ */
+async function digest(to: Member[], event: TaskEvent, summary: string, n: string, t: Task, ctx: Ctx, actorId: string, fallback: () => Promise<void>) {
+  if (to.length === 0) return;
+  if (ctx.settings.digest_enabled === false) return fallback();
+  const { error } = await createAdminClient()
+    .from("notification_digest")
+    .insert(to.map((m) => ({ recipient_id: m.id, task_id: t.id, actor_id: actorId, event, summary, note: n })));
+  if (error) {
+    console.error("[pexeta-ops] digest queue failed, emailing instead:", error.message);
+    await fallback();
+  }
+}
+
+async function watchers(taskId: string, ctx: Ctx): Promise<Member[]> {
+  const { data } = await createAdminClient().from("task_watchers").select("member_id").eq("task_id", taskId);
+  return (data ?? []).map((w) => ctx.byId[w.member_id as string]).filter(Boolean) as Member[];
+}
+
 export async function notifyTaskEvent(taskId: string, event: TaskEvent, opts: Opts) {
   try {
     const [t, ctx] = await Promise.all([loadTaskById(taskId), loadCtx()]);
     if (!t) return;
     const actor = ctx.byId[opts.actorId];
     const by = esc(actor?.full_name ?? "Someone");
+    const plainBy = actor?.full_name ?? "Someone";
     const owner = ctx.byId[t.assignee_id];
     const creator = ctx.byId[t.created_by];
     const ref = taskRef(t);
@@ -81,6 +105,7 @@ export async function notifyTaskEvent(taskId: string, event: TaskEvent, opts: Op
     const noteBox = (tone: "info" | "warn" | "danger" = "info") => (n ? note(n, tone) : "");
 
     switch (event) {
+      // ---------- Instant ----------
       case "created": {
         const to = people(ctx, opts.actorId, owner);
         await mail(to, [], `New task ${ref}: ${t.title}`, "A new task has been assigned to you", `${by} assigned you a task. Please acknowledge it in Pexeta Ops.`, t, ctx, t.description ? note(t.description) : "");
@@ -91,30 +116,15 @@ export async function notifyTaskEvent(taskId: string, event: TaskEvent, opts: Op
         await mail(to, [], `Task ${ref} reassigned to you: ${t.title}`, "A task has been reassigned to you", `${by} reassigned this task to you. Please acknowledge it.`, t, ctx, noteBox());
         const prev = opts.previousAssigneeId ? ctx.byId[opts.previousAssigneeId] : undefined;
         const fyi = people(ctx, opts.actorId, prev);
-        await mail(fyi, [], `Task ${ref} moved to ${owner?.full_name ?? "another owner"}`, "A task has moved off your list", `${by} reassigned this task to ${esc(owner?.full_name ?? "another team member")}. No action needed from you.`, t, ctx);
-        break;
-      }
-      case "acknowledged": {
-        const to = people(ctx, opts.actorId, creator);
-        await mail(to, [], `${owner?.full_name ?? "Owner"} acknowledged ${ref}`, "Task acknowledged", `${by} has acknowledged the task.`, t, ctx, noteBox());
-        break;
-      }
-      case "started": {
-        // Starting straight from "assigned" counts as acknowledgement.
-        const to = people(ctx, opts.actorId, creator);
-        await mail(to, [], `${owner?.full_name ?? "Owner"} started ${ref}`, "Work has started", `${by} has acknowledged the task and started work.`, t, ctx, noteBox());
+        await digest(fyi, event, `${plainBy} moved this task to ${owner?.full_name ?? "another team member"}. No action needed.`, n, t, ctx, opts.actorId, () =>
+          mail(fyi, [], `Task ${ref} moved to ${owner?.full_name ?? "another owner"}`, "A task has moved off your list", `${by} reassigned this task to ${esc(owner?.full_name ?? "another team member")}. No action needed from you.`, t, ctx)
+        );
         break;
       }
       case "blocked": {
         const to = people(ctx, opts.actorId, ctx.vps, creator);
         await mail(to, [], `Blocked: ${ref} · ${t.title}`, "A task is blocked", `${by} marked this task blocked. It needs a decision or input to move.`, t, ctx, note(n || t.blocked_reason, "danger"));
         await sendChat(chatLine(t, ctx, `🔴 *Blocked* by ${actor?.full_name ?? "someone"}`, n || t.blocked_reason));
-        break;
-      }
-      case "unblocked": {
-        await sendChat(chatLine(t, ctx, `🟢 *Unblocked* by ${actor?.full_name ?? "someone"}`, n));
-        const to = people(ctx, opts.actorId, owner, creator);
-        await mail(to, [], `Unblocked: ${ref} · ${t.title}`, "A task is moving again", `${by} cleared the block on this task.`, t, ctx, noteBox());
         break;
       }
       case "completed": {
@@ -124,27 +134,61 @@ export async function notifyTaskEvent(taskId: string, event: TaskEvent, opts: Op
         await sendChat(chatLine(t, ctx, `🟠 *Submitted for closure* by ${actor?.full_name ?? "someone"}`, n));
         break;
       }
-      case "closed": {
-        const to = people(ctx, opts.actorId, owner, creator?.role === "lead" ? creator : undefined);
-        await mail(to, [], `Closed: ${ref} · ${t.title}`, "Your task has been closed", `${by} verified and closed this task. Well done.`, t, ctx, noteBox());
-        await sendChat(chatLine(t, ctx, `✅ *Closed* by ${actor?.full_name ?? "someone"}`));
-        break;
-      }
       case "reopened": {
         const to = people(ctx, opts.actorId, owner);
         await mail(to, [], `Reopened: ${ref} · ${t.title}`, "Your task has been reopened", `${by} reopened this task. Please read the feedback and acknowledge it.`, t, ctx, note(n, "warn"));
         await sendChat(chatLine(t, ctx, `↩️ *Reopened* by ${actor?.full_name ?? "someone"}`, n));
         break;
       }
+
+      // ---------- Digest ----------
+      case "acknowledged": {
+        const to = people(ctx, opts.actorId, creator);
+        await digest(to, event, `${plainBy} acknowledged the task.`, n, t, ctx, opts.actorId, () =>
+          mail(to, [], `${owner?.full_name ?? "Owner"} acknowledged ${ref}`, "Task acknowledged", `${by} has acknowledged the task.`, t, ctx, noteBox())
+        );
+        break;
+      }
+      case "started": {
+        // Starting straight from "assigned" counts as acknowledgement.
+        const to = people(ctx, opts.actorId, creator);
+        await digest(to, event, `${plainBy} acknowledged the task and started work.`, n, t, ctx, opts.actorId, () =>
+          mail(to, [], `${owner?.full_name ?? "Owner"} started ${ref}`, "Work has started", `${by} has acknowledged the task and started work.`, t, ctx, noteBox())
+        );
+        break;
+      }
+      case "unblocked": {
+        await sendChat(chatLine(t, ctx, `🟢 *Unblocked* by ${actor?.full_name ?? "someone"}`, n));
+        const to = people(ctx, opts.actorId, owner, creator);
+        await digest(to, event, `${plainBy} cleared the block. The task is moving again.`, n, t, ctx, opts.actorId, () =>
+          mail(to, [], `Unblocked: ${ref} · ${t.title}`, "A task is moving again", `${by} cleared the block on this task.`, t, ctx, noteBox())
+        );
+        break;
+      }
+      case "closed": {
+        const to = people(ctx, opts.actorId, owner, creator?.role === "lead" ? creator : undefined);
+        await digest(to, event, `${plainBy} verified and closed the task. Well done.`, n, t, ctx, opts.actorId, () =>
+          mail(to, [], `Closed: ${ref} · ${t.title}`, "Your task has been closed", `${by} verified and closed this task. Well done.`, t, ctx, noteBox())
+        );
+        await sendChat(chatLine(t, ctx, `✅ *Closed* by ${actor?.full_name ?? "someone"}`));
+        break;
+      }
       case "due_changed": {
         const to = people(ctx, opts.actorId, owner);
-        await mail(to, [], `Due date changed: ${ref} now due ${formatDate(t.due_date)}`, "A due date has changed", `${by} changed the due date of this task to ${esc(formatDate(t.due_date))}.`, t, ctx, noteBox());
+        await digest(to, event, `${plainBy} changed the due date to ${formatDate(t.due_date)}.`, n, t, ctx, opts.actorId, () =>
+          mail(to, [], `Due date changed: ${ref} now due ${formatDate(t.due_date)}`, "A due date has changed", `${by} changed the due date of this task to ${esc(formatDate(t.due_date))}.`, t, ctx, noteBox())
+        );
         break;
       }
       case "comment": {
-        // The other side of the conversation: the owner, and whoever assigned it.
-        const to = people(ctx, opts.actorId, owner, creator);
-        await mail(to, [], `New comment on ${ref}: ${t.title}`, "New comment", `${by} commented:`, t, ctx, note(n));
+        // People @mentioned hear straight away; everyone else on the task gets it in the digest.
+        const mentioned = people(ctx, opts.actorId, (opts.mentionedIds ?? []).map((id) => ctx.byId[id]).filter(Boolean) as Member[]);
+        await mail(mentioned, [], `${plainBy} mentioned you on ${ref}: ${t.title}`, "You were mentioned", `${by} mentioned you in a comment:`, t, ctx, note(n));
+        const skip = new Set(mentioned.map((m) => m.id));
+        const others = people(ctx, opts.actorId, owner, creator, await watchers(t.id, ctx)).filter((m) => !skip.has(m.id));
+        await digest(others, event, `${plainBy} commented.`, n, t, ctx, opts.actorId, () =>
+          mail(others, [], `New comment on ${ref}: ${t.title}`, "New comment", `${by} commented:`, t, ctx, note(n))
+        );
         break;
       }
     }
