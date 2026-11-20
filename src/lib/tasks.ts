@@ -128,6 +128,8 @@ export const ACTIVITY_LABEL: Record<string, string> = {
   edited: "Edited details",
   meeting_scheduled: "Scheduled a meeting",
   reminder_set: "Set a reminder",
+  call_started: "Started a Meet call",
+  link_added: "Added a link",
 };
 
 /** Timestamp (ms) for N days ago. */

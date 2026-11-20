@@ -9,6 +9,11 @@ import ActionForm from "./ActionForm";
 import CommentBox from "./CommentBox";
 import { createClient } from "@/lib/supabase/server";
 import { handleFor } from "@/lib/mentions";
+import TaskLinks from "./TaskLinks";
+import ContactButtons from "@/components/ContactButtons";
+import { calendarEnabled } from "@/lib/google/calendar";
+import { chatEnabled } from "@/lib/google/chat";
+import { isManager } from "@/lib/auth";
 
 export const metadata: Metadata = { title: "Task" };
 
@@ -19,6 +24,14 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const activity = await getActivity(task.id);
   const { data: watcherRows } = await (await createClient()).from("task_watchers").select("member_id").eq("task_id", task.id);
   const watcherIds = (watcherRows ?? []).map((w) => w.member_id as string);
+  const { data: linkRows } = await (await createClient()).from("task_links").select("id, url, label, added_by").eq("task_id", task.id).order("created_at");
+  const links = (linkRows ?? []) as { id: string; url: string; label: string; added_by: string | null }[];
+  const cal = calendarEnabled();
+  const chat = chatEnabled();
+  const contacts = [...new Set([task.assignee_id, task.created_by])]
+    .filter((id) => id !== me.id)
+    .map((id) => lookups.team.find((m) => m.id === id))
+    .filter((m): m is NonNullable<typeof m> => Boolean(m && m.active));
   const activeTeam = lookups.team.filter((m) => m.active);
   const mentionPeople = activeTeam
     .filter((m) => m.id !== me.id)
@@ -107,9 +120,22 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         <aside className="space-y-4">
           <section className="card p-5">
             <h2 className="eyebrow">Talk about it</h2>
-            <Link href={`/meetings?task=${task.id}`} className="btn btn-outline mt-3 w-full">Schedule a call or reminder</Link>
-            <p className="mt-2 text-xs text-muted">Creates a Google Calendar event with a Meet link, linked to this task.</p>
+            {contacts.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {contacts.map((m) => (
+                  <div key={m.id}>
+                    <div className="mb-1.5 flex items-center gap-2 text-sm text-ink">
+                      <Avatar name={m.full_name} size={22} /> {m.full_name}
+                      <span className="text-xs text-faint">{m.id === task.assignee_id ? "owner" : "assigned it"}</span>
+                    </div>
+                    <ContactButtons memberId={m.id} email={m.email} chat={chat} calendar={cal} taskId={task.id} topic={`${taskRef(task)} ${task.title}`} />
+                  </div>
+                ))}
+              </div>
+            )}
+            <Link href={`/meetings?task=${task.id}`} className="btn btn-outline mt-4 w-full">Schedule a call or reminder</Link>
           </section>
+          <TaskLinks taskId={task.id} links={links} meId={me.id} manager={isManager(me.role)} />
           {isOwner && (
             <section className="card space-y-4 p-5">
               <h2 className="eyebrow">Your actions</h2>

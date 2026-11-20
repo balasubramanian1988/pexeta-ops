@@ -3,61 +3,21 @@
 // so invites come from the organiser and Meet links are created on their account.
 // Optional: if GOOGLE_SA_EMAIL / GOOGLE_SA_PRIVATE_KEY aren't set, every function is a no-op.
 import "server-only";
-import { createSign, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { accessToken, googleConfigured, SCOPES } from "./auth";
 
-const SCOPE = "https://www.googleapis.com/auth/calendar.events";
-const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const API = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
 export const TIME_ZONE = "Asia/Kolkata";
 
 export function calendarEnabled() {
-  return Boolean(process.env.GOOGLE_SA_EMAIL && process.env.GOOGLE_SA_PRIVATE_KEY);
-}
-
-function privateKey() {
-  // Vercel stores multi-line values as-is, but a key pasted with literal "\n" also works.
-  return (process.env.GOOGLE_SA_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
-}
-
-const b64url = (s: string | Buffer) => Buffer.from(s).toString("base64url");
-
-const tokens = new Map<string, { token: string; exp: number }>();
-
-async function accessToken(subject: string): Promise<string> {
-  const key = subject.toLowerCase();
-  const cached = tokens.get(key);
-  if (cached && cached.exp > Date.now() + 60_000) return cached.token;
-
-  const now = Math.floor(Date.now() / 1000);
-  const header = b64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const claims = b64url(
-    JSON.stringify({ iss: process.env.GOOGLE_SA_EMAIL, scope: SCOPE, aud: TOKEN_URL, sub: key, iat: now, exp: now + 3600 })
-  );
-  const signer = createSign("RSA-SHA256");
-  signer.update(`${header}.${claims}`);
-  const assertion = `${header}.${claims}.${b64url(signer.sign(privateKey()))}`;
-
-  const res = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
-  });
-  const json = (await res.json()) as { access_token?: string; expires_in?: number; error?: string; error_description?: string };
-  if (!res.ok || !json.access_token) {
-    throw new Error(
-      `Google sign-in for ${key} failed: ${json.error ?? res.status} ${json.error_description ?? ""}`.trim() +
-        " (check the service account key and domain-wide delegation for the calendar.events scope)"
-    );
-  }
-  tokens.set(key, { token: json.access_token, exp: Date.now() + (json.expires_in ?? 3600) * 1000 });
-  return json.access_token;
+  return googleConfigured();
 }
 
 async function call<T>(subject: string, method: string, path: string, query: Record<string, string> = {}, body?: unknown): Promise<T | null> {
   const qs = new URLSearchParams(query).toString();
   const res = await fetch(`${API}${path}${qs ? `?${qs}` : ""}`, {
     method,
-    headers: { Authorization: `Bearer ${await accessToken(subject)}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${await accessToken(subject, SCOPES.calendar)}`, "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (method === "DELETE" && (res.status === 404 || res.status === 410)) return null; // already gone
@@ -74,7 +34,9 @@ type GEvent = {
   status?: string;
   start?: { dateTime?: string; date?: string };
   end?: { dateTime?: string; date?: string };
-  attendees?: { email: string; responseStatus?: string }[];
+  attendees?: { email: string; self?: boolean; responseStatus?: string }[];
+  eventType?: string;
+  transparency?: string;
   extendedProperties?: { private?: Record<string, string> };
 };
 
@@ -162,4 +124,44 @@ export async function listEvents(owner: string, timeMin: string, timeMax: string
       htmlLink: e.htmlLink ?? "",
       opsTaskId: e.extendedProperties?.private?.opsTask,
     }));
+}
+
+export type Availability =
+  | { state: "away"; until: string; title: string }
+  | { state: "busy"; until: string; title: string; next?: { start: string; title: string } }
+  | { state: "free"; next?: { start: string; title: string } }
+  | { state: "unknown" };
+
+/** Is this person free right now? Reads their own calendar for the rest of today (IST). */
+export async function availability(email: string): Promise<Availability> {
+  try {
+    const now = new Date();
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(now);
+    const endOfDay = new Date(`${today}T23:59:59+05:30`);
+    const res = await call<{ items?: GEvent[] }>(email, "GET", "", {
+      timeMin: now.toISOString(),
+      timeMax: endOfDay.toISOString(),
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "20",
+    });
+    const items = (res?.items ?? []).filter((e) => {
+      if (e.status === "cancelled" || e.transparency === "transparent") return false;
+      if (!e.start?.dateTime && e.eventType !== "outOfOffice") return false; // all-day events (e.g. task deadlines) don't make you busy
+      const me = e.attendees?.find((a) => a.self);
+      return !(me && me.responseStatus === "declined");
+    });
+    const nowMs = now.getTime();
+    const startMs = (e: GEvent) => new Date(e.start?.dateTime ?? `${e.start?.date}T00:00:00+05:30`).getTime();
+    const endIso = (e: GEvent) => e.end?.dateTime ?? `${e.end?.date}T00:00:00+05:30`;
+    const current = items.find((e) => startMs(e) <= nowMs && new Date(endIso(e)).getTime() > nowMs);
+    const upcoming = items.find((e) => startMs(e) > nowMs);
+    const next = upcoming ? { start: upcoming.start?.dateTime ?? "", title: upcoming.summary ?? "Busy" } : undefined;
+    if (current?.eventType === "outOfOffice") return { state: "away", until: endIso(current), title: current.summary ?? "Out of office" };
+    if (current) return { state: "busy", until: endIso(current), title: current.summary ?? "Busy", next };
+    return { state: "free", next };
+  } catch (err) {
+    console.error(`[pexeta-ops] availability for ${email} failed:`, err);
+    return { state: "unknown" };
+  }
 }

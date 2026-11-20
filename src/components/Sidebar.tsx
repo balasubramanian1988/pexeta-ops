@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { LayoutDashboard, ListChecks, ClipboardList, FileText, Settings, Menu, X, LogOut, CalendarDays, Repeat } from "lucide-react";
+import { LayoutDashboard, ListChecks, ClipboardList, FileText, Settings, Menu, X, LogOut, CalendarDays, Repeat, Users } from "lucide-react";
 import type { Member } from "@/lib/types";
 
 const ROLE_LABEL = { vp: "Vice President", admin: "Admin", lead: "Team lead", member: "Team member" } as const;
@@ -17,6 +17,7 @@ export default function Sidebar({ member }: { member: Member }) {
     { href: "/dashboard", label: manager ? "VP dashboard" : "Dashboard", icon: LayoutDashboard },
     { href: "/my-work", label: "My work", icon: ListChecks },
     { href: "/tasks", label: "Task register", icon: ClipboardList },
+    { href: "/team", label: "Team", icon: Users },
     { href: "/meetings", label: "Meetings", icon: CalendarDays },
     ...(member.role !== "member" ? [{ href: "/recurring", label: "Recurring tasks", icon: Repeat }] : []),
     ...(manager
